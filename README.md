@@ -1,0 +1,2 @@
+# mattermost-channel-checker
+mattermostにチャンネルが追加された際に、その情報を指定チャンネルにポストするプログラム
