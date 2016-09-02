@@ -1,24 +1,22 @@
 package tsyki.mattermost;
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.NameValuePair;
+import org.apache.http.Header;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.util.EntityUtils;
 
 /**
  * Mattermostにチャンネルが追加された場合にその情報を特定チャンネルにポストします
@@ -26,6 +24,26 @@ import org.apache.http.util.EntityUtils;
  * @since 2016/09/01
  */
 public class ChannelCreateChecker {
+
+    private static final String KEY_MATTERMOST_URL = "mattermost_url";
+
+    private static final String KEY_POST_CANNEL = "post_channel_name";
+
+    private static final String KEY_HEADER_TOKEN = "Token";
+
+    private static final String API_HOME_PATH = "/api/v3";
+
+    private static final String LOGIN_PATH = "/users/login";
+
+    private static final String LOGIN_JSON_FILE_PATH = "login.json";
+
+    private String mattermostUrl;
+
+    private String postChannelName;
+
+    private String getLoginPath() {
+        return mattermostUrl + API_HOME_PATH + LOGIN_PATH;
+    }
 
     public static void main( String[] args) throws IOException {
         String confFilePath = "channel_checker.properties";
@@ -55,46 +73,68 @@ public class ChannelCreateChecker {
                 is.close();
             }
         }
+        mattermostUrl = prop.getProperty( KEY_MATTERMOST_URL);
+        if ( mattermostUrl == null || mattermostUrl.isEmpty()) {
+            throw new IllegalStateException( "mattermostのURLがコンフィグファイルに書かれていません");
+        }
+        postChannelName = prop.getProperty( KEY_POST_CANNEL, "timeline");
     }
 
     public void run() throws IOException, ClientProtocolException, UnsupportedEncodingException {
         CloseableHttpClient httpclient = HttpClients.createDefault();
-        HttpGet httpGet = new HttpGet( "http://targethost/homepage");
-        CloseableHttpResponse response1 = httpclient.execute( httpGet);
-        // The underlying HTTP connection is still held by the response object
-        // to allow the response content to be streamed directly from the network socket.
-        // In order to ensure correct deallocation of system resources
-        // the user MUST call CloseableHttpResponse#close() from a finally clause.
-        // Please note that if response content is not fully consumed the underlying
-        // connection cannot be safely re-used and will be shut down and discarded
-        // by the connection manager.
-        try {
-            System.out.println( response1.getStatusLine());
-            HttpEntity entity1 = response1.getEntity();
-            // do something useful with the response body
-            // and ensure it is fully consumed
-            EntityUtils.consume( entity1);
-        }
-        finally {
-            response1.close();
+
+        String authToken = getAuthToken( httpclient);
+
+        System.out.println( authToken);
+
+    }
+
+    private String getAuthToken( CloseableHttpClient httpclient) throws FileNotFoundException, IOException, UnsupportedEncodingException,
+            ClientProtocolException {
+        HttpPost request = new HttpPost( getLoginPath());
+
+        String strJson = createLoginJson();
+
+        StringEntity body = new StringEntity( strJson);
+        request.addHeader( "Content-type", "application/json");
+        request.setEntity( body);
+
+        CloseableHttpResponse response = httpclient.execute( request);
+        Header[] tokenHeaders = response.getHeaders( KEY_HEADER_TOKEN);
+        // TODO アドレスが不正とか、ユーザ名、パスワードが不正とかちゃんと区別する
+        if ( tokenHeaders == null || tokenHeaders.length == 0) {
+            throw new IllegalStateException( "認証用トークンが取得できません。チーム名、ユーザ名、パスワードが正しいか確認してください。response=" + response);
         }
 
-        HttpPost httpPost = new HttpPost( "http://targethost/login");
-        List<NameValuePair> nvps = new ArrayList<NameValuePair>();
-        nvps.add( new BasicNameValuePair( "username", "vip"));
-        nvps.add( new BasicNameValuePair( "password", "secret"));
-        httpPost.setEntity( new UrlEncodedFormEntity( nvps));
-        CloseableHttpResponse response2 = httpclient.execute( httpPost);
-
         try {
-            System.out.println( response2.getStatusLine());
-            HttpEntity entity2 = response2.getEntity();
-            // do something useful with the response body
-            // and ensure it is fully consumed
-            EntityUtils.consume( entity2);
+            // XXX これ必要？
+            // HttpEntity entity = response.getEntity();
+            // EntityUtils.consume( entity);
         }
         finally {
-            response2.close();
+            response.close();
         }
+
+        String authToken = tokenHeaders[0].getValue();
+        return authToken;
+    }
+
+    private String createLoginJson() throws FileNotFoundException, IOException {
+        String strJson = "";
+
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader( new FileReader( new File( LOGIN_JSON_FILE_PATH)));
+            String str;
+            while ( (str = br.readLine()) != null) {
+                strJson += str;
+            }
+        }
+        finally {
+            if ( br != null) {
+                br.close();
+            }
+        }
+        return strJson;
     }
 }
