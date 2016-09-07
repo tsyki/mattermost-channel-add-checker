@@ -126,8 +126,41 @@ public class MattermostWebDriver {
         return result;
     }
 
+    /**
+     * ログインユーザが参照可能な全てのチャンネルを返します(参加していないチャンネルも含む)
+     * @return
+     * @throws IOException
+     * @throws ClientProtocolException
+     */
     public List<Channel> getAllChannels() throws ClientProtocolException, IOException {
-        HttpGet request = createGetRequest( getAllChannelPath());
+        List<Channel> channels = new LinkedList<Channel>();
+        channels.addAll( getJoinedChannels());
+        channels.addAll( getMoreChannels());
+        return channels;
+    }
+
+    /**
+     * ログインユーザが参加しているチャンネル一覧を返します
+     * @return
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public List<Channel> getJoinedChannels() throws ClientProtocolException, IOException {
+        return getChannels( getJoinedChannelPath());
+    }
+
+    /**
+     * ログインユーザが参加していないチャンネル一覧を返します
+     * @return
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public List<Channel> getMoreChannels() throws ClientProtocolException, IOException {
+        return getChannels( getMoreChannelPath());
+    }
+
+    private List<Channel> getChannels( String path) throws ClientProtocolException, IOException {
+        HttpGet request = createGetRequest( path);
         addAuthHeader( request);
         CloseableHttpResponse response = null;
         try {
@@ -298,7 +331,12 @@ public class MattermostWebDriver {
         return getTeamsRoute() + "/all";
     }
 
-    private String getAllChannelPath() {
+    private String getJoinedChannelPath() {
         return getChannelsRoute() + "/";
     }
+
+    private String getMoreChannelPath() {
+        return getChannelsRoute() + "/more";
+    }
+
 }
