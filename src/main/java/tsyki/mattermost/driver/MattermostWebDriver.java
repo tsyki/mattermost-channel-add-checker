@@ -93,9 +93,7 @@ public class MattermostWebDriver {
         // XXX find_team_by_nameがうまく動かなかったのでallで取ってから名前で突き合わせる
         HttpGet request = createGetRequest( getAllTeamsPath());
 
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
             String body = getBodyValue( response);
             Map<String, Map<String, String>> result = parseJson( body);
             for ( Map<String, String> teamMap : result.values()) {
@@ -104,11 +102,6 @@ public class MattermostWebDriver {
                     this.teamId = teamMap.get( "id");
                     break;
                 }
-            }
-        }
-        finally {
-            if ( response != null) {
-                response.close();
             }
         }
 
@@ -148,16 +141,9 @@ public class MattermostWebDriver {
         HttpPost request = createPostRequest( getPostCreatePath( channelId), strJson);
         addAuthHeader( request);
 
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
             String body = getBodyValue( response);
             logger.fine( body.toString());
-        }
-        finally {
-            if ( response != null) {
-                response.close();
-            }
         }
     }
 
@@ -170,16 +156,9 @@ public class MattermostWebDriver {
     public void joinChannel( String channelId) throws ClientProtocolException, IOException {
         HttpPost request = createPostRequest( getJoinChannelPath( channelId), "");
         addAuthHeader( request);
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
             String body = getBodyValue( response);
             logger.fine( body.toString());
-        }
-        finally {
-            if ( response != null) {
-                response.close();
-            }
         }
     }
 
@@ -226,9 +205,7 @@ public class MattermostWebDriver {
     private List<Channel> getChannels( String path) throws ClientProtocolException, IOException {
         HttpGet request = createGetRequest( path);
         addAuthHeader( request);
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
             String body = getBodyValue( response);
             Map<String, List<Map<String, Object>>> allMap = parseJson( body);
             List<Map<String, Object>> channelsMap = allMap.get( "channels");
@@ -238,11 +215,6 @@ public class MattermostWebDriver {
                 channels.add( channel);
             }
             return channels;
-        }
-        finally {
-            if ( response != null) {
-                response.close();
-            }
         }
     }
 
@@ -300,9 +272,7 @@ public class MattermostWebDriver {
         String strJson = JsonBuilder.builder().put( KEY_LOGIN_ID, loginId).put( KEY_PASSWORD, password).build();
         HttpPost request = createPostRequest( getLoginPath(), strJson);
 
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
             String authToken;
             try {
                 authToken = getHeaderValue( response, KEY_HEADER_TOKEN);
@@ -312,16 +282,10 @@ public class MattermostWebDriver {
                 throw new IllegalStateException( "認証用トークンが取得できません。チーム名、ユーザ名、パスワードが正しいか確認してください。response=" + response);
             }
 
-            // XXX これ必要？
             HttpEntity entity = response.getEntity();
             EntityUtils.consume( entity);
 
             this.authToken = authToken;
-        }
-        finally {
-            if ( response != null) {
-                response.close();
-            }
         }
     }
 
