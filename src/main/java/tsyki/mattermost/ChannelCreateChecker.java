@@ -5,11 +5,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 import org.apache.http.client.ClientProtocolException;
 
+import tsyki.mattermost.driver.Channel;
 import tsyki.mattermost.driver.MattermostWebDriver;
 
 /**
@@ -79,12 +79,10 @@ public class ChannelCreateChecker {
         driver.setUrl( mattermostUrl);
         driver.login( loginId, password);
         driver.setTeamIdByName( teamName);
-        // TODO Mapではなくクラスにしたい
-        List<Map<String, String>> channels = driver.getAllChannel();
-        for ( Map<String, String> map : channels) {
-            String channelId = map.get( "id");
-            String channelName = map.get( "display_name");
-            System.out.println( "id=" + channelId + " name=" + channelName);
+        List<Channel> channels = driver.getAllChannels();
+        for ( Channel channel : channels) {
+            String format = "id=%s name=%s displayName=%s createAt=%s";
+            System.out.println( String.format( format, channel.getId(), channel.getName(), channel.getDisplayName(), channel.getCreateAt()));
         }
     }
 

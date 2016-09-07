@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -125,7 +126,7 @@ public class MattermostWebDriver {
         return result;
     }
 
-    public List<Map<String, String>> getAllChannel() throws ClientProtocolException, IOException {
+    public List<Channel> getAllChannels() throws ClientProtocolException, IOException {
         HttpGet request = createGetRequest( getAllChannelPath());
         addAuthHeader( request);
         CloseableHttpResponse response = null;
@@ -134,8 +135,13 @@ public class MattermostWebDriver {
             List<String> allLines = getBodyValue( response);
             // NOTE 結果は一行しかない
             for ( String line : allLines) {
-                Map<String, List<Map<String, String>>> map = parseJson( line);
-                List<Map<String, String>> channels = map.get( "channels");
+                Map<String, List<Map<String, Object>>> allMap = parseJson( line);
+                List<Map<String, Object>> channelsMap = allMap.get( "channels");
+                List<Channel> channels = new LinkedList<Channel>();
+                for ( Map<String, Object> channelMap : channelsMap) {
+                    Channel channel = parseChannel( channelMap);
+                    channels.add( channel);
+                }
                 return channels;
             }
 
@@ -149,6 +155,20 @@ public class MattermostWebDriver {
         }
         // ここには来ないはず？チャンネルが一つもない場合も本当にそうかは未検証
         throw new IllegalStateException();
+    }
+
+    // Jsonから作成されたチャンネル情報を元にChannelを作成
+    private Channel parseChannel( Map<String, Object> channelMap) {
+        Channel channel = new Channel();
+        channel.setId( ( String) channelMap.get( "id"));
+        channel.setName( ( String) channelMap.get( "name"));
+        channel.setDisplayName( ( String) channelMap.get( "display_name"));
+        Date createAt = new Date( ( Long) channelMap.get( "create_at"));
+        channel.setCreateAt( createAt);
+        // XXX 作成直後はcreate_atと同じ値になっているのだろうか？
+        Date updateAt = new Date( ( Long) channelMap.get( "update_at"));
+        channel.setUpdateAt( updateAt);
+        return channel;
     }
 
     private void addAuthHeader( HttpRequestBase request) {
