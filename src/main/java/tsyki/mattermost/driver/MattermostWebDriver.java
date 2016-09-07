@@ -9,6 +9,7 @@ import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -45,6 +46,8 @@ public class MattermostWebDriver {
 
     /** ログイン結果のトークンが格納されているヘッダキー */
     private static final String KEY_HEADER_TOKEN = "Token";
+
+    private Logger logger = Logger.getLogger( this.getClass().getName());
 
     private CloseableHttpClient httpclient;
 
@@ -117,6 +120,79 @@ public class MattermostWebDriver {
             }
         }
 
+    }
+
+    /**
+     * 指定のnameを持つチャンネルのIDを返す
+     * @param findChannelName
+     * @return
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public String getChannelIdByName( String findChannelName) throws ClientProtocolException, IOException {
+        // XXX nameからチャンネルを取得する専用のAPIがあるのかもしれないが、見つからなかったので全部取ってきて探す。イマイチ。
+        List<Channel> channels = getAllChannels();
+        for ( Channel channel : channels) {
+            if ( findChannelName.equals( channel.getName())) {
+                return channel.getId();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 指定のチャンネルにポストします
+     * @param postChannelId
+     * @param msg
+     * @throws IOException
+     * @throws ClientProtocolException
+     */
+    public void post( String channelId, String msg) throws ClientProtocolException, IOException {
+
+        String strJson = JsonBuilder.builder()//
+            .put( "message", msg)//
+            .put( "channel_id", channelId)//
+            .build();
+        HttpPost request = createPostRequest( getPostCreatePath( channelId), strJson);
+        addAuthHeader( request);
+
+        CloseableHttpResponse response = null;
+        try {
+            response = httpclient.execute( request);
+            List<String> bodyLines = getBodyValue( response);
+            logger.fine( bodyLines.toString());
+            // XXX これ要る？
+            EntityUtils.consume( response.getEntity());
+        }
+        finally {
+            if ( response != null) {
+                response.close();
+            }
+        }
+    }
+
+    /**
+     * 指定のチャンネルに所属します
+     * @param channelId
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public void joinChannel( String channelId) throws ClientProtocolException, IOException {
+        HttpPost request = createPostRequest( getJoinChannelPath( channelId), "");
+        addAuthHeader( request);
+        CloseableHttpResponse response = null;
+        try {
+            response = httpclient.execute( request);
+            List<String> bodyLines = getBodyValue( response);
+            logger.fine( bodyLines.toString());
+            // XXX これ要る？
+            EntityUtils.consume( response.getEntity());
+        }
+        finally {
+            if ( response != null) {
+                response.close();
+            }
+        }
     }
 
     private <T> Map<String, T> parseJson( String json) throws JsonParseException, JsonMappingException, IOException {
@@ -218,7 +294,7 @@ public class MattermostWebDriver {
     private HttpPost createPostRequest( String postPath, String postJson) throws UnsupportedEncodingException {
         HttpPost request = new HttpPost( postPath);
 
-        StringEntity body = new StringEntity( postJson);
+        StringEntity body = new StringEntity( postJson, "UTF-8");
         request.addHeader( "Content-type", "application/json");
         request.setEntity( body);
 
@@ -284,7 +360,7 @@ public class MattermostWebDriver {
     private List<String> getBodyValue( CloseableHttpResponse response) throws IOException {
         List<String> lines = new LinkedList<String>();
         if ( response.getStatusLine().getStatusCode() != 200) {
-            throw new IllegalStateException( response.getStatusLine().toString());
+            throw new IllegalStateException( response.toString());
         }
         HttpEntity entity = response.getEntity();
         InputStream content = entity.getContent();
@@ -323,6 +399,14 @@ public class MattermostWebDriver {
         return getTeamNeededRoute() + "/channels";
     }
 
+    private String getChannelNeededRoute( String channelId) {
+        return getChannelsRoute() + "/" + channelId;
+    }
+
+    private String getPostsRoute( String channelId) {
+        return getChannelNeededRoute( channelId) + "/posts";
+    }
+
     private String getLoginPath() {
         return getUsersRoute() + "/login";
     }
@@ -337,6 +421,14 @@ public class MattermostWebDriver {
 
     private String getMoreChannelPath() {
         return getChannelsRoute() + "/more";
+    }
+
+    private String getJoinChannelPath( String channelId) {
+        return getChannelNeededRoute( channelId) + "/join";
+    }
+
+    private String getPostCreatePath( String channelId) {
+        return getPostsRoute( channelId) + "/create";
     }
 
 }

@@ -84,7 +84,7 @@ public class ChannelCreateChecker {
         teamName = prop.getProperty( KEY_TEAM_NAME);
         loginId = prop.getProperty( KEY_LOGIN_ID);
         password = prop.getProperty( KEY_PASSWORD);
-        postChannelName = prop.getProperty( KEY_POST_CANNEL, "timeline");
+        postChannelName = prop.getProperty( KEY_POST_CANNEL);
     }
 
     public void run( String readedChannelFilePath) throws IOException, ClientProtocolException, UnsupportedEncodingException {
@@ -102,14 +102,21 @@ public class ChannelCreateChecker {
             writeChannelIds( readedChannelFilePath, channels);
             return;
         }
+        String postChannelId = driver.getChannelIdByName( postChannelName);
+        if ( postChannelId == null) {
+            throw new IllegalStateException( "ポストするチャンネルを取得できません。name=" + postChannelName);
+        }
         // 過去データと比較
         List<String> readedIdx = readChannelIds( readedChannelFilePath);
         for ( Channel channel : channels) {
             // 過去データにない＝新規追加チャンネルである
             if ( !readedIdx.contains( channel.getId())) {
-                // TODO postする
-                System.out.println( "新規チャンネルが追加されました。id=" + channel.getId() + " name=" + channel.getName() + " 名称=" + channel.getDisplayName()
-                        + " createdAt=" + channel.getCreateAt());
+                logger.info( "新規追加チャンネル発見。name=" + channel.getName() + " display_name=" + channel.getDisplayName() + " id=" + channel.getId());
+                String msg = "新規チャンネルが追加されました。name=" + channel.getName() + " 名称=" + channel.getDisplayName();
+                // 指定のチャンネルにログインユーザが居ないと403になるので、自動で所属する
+                // NOTE すでに所属している状態でjoinしても特にエラーはでない
+                driver.joinChannel( postChannelId);
+                driver.post( postChannelId, msg);
             }
             // debug write
             String format = "id=%s name=%s displayName=%s createAt=%s";
