@@ -111,8 +111,11 @@ public class ChannelCreateChecker {
         for ( Channel channel : channels) {
             // 過去データにない＝新規追加チャンネルである
             if ( !readedIdx.contains( channel.getId())) {
+                logger.info( "新規追加チャンネル発見。name=" + channel.getName() + " display_name=" + channel.getDisplayName() + " id=" + channel.getId());
                 String msg = "新規チャンネルが追加されました。name=" + channel.getName() + " 名称=" + channel.getDisplayName();
-                // TODO 指定のチャンネルにログインユーザが居ないと403になるので、自動で所属させたい
+                // 指定のチャンネルにログインユーザが居ないと403になるので、自動で所属する
+                // NOTE すでに所属している状態でjoinしても特にエラーはでない
+                driver.joinChannel( postChannelId);
                 driver.post( postChannelId, msg);
             }
             // debug write

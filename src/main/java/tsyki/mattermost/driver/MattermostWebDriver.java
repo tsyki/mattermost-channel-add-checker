@@ -9,6 +9,7 @@ import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -45,6 +46,8 @@ public class MattermostWebDriver {
 
     /** ログイン結果のトークンが格納されているヘッダキー */
     private static final String KEY_HEADER_TOKEN = "Token";
+
+    private Logger logger = Logger.getLogger( this.getClass().getName());
 
     private CloseableHttpClient httpclient;
 
@@ -157,7 +160,31 @@ public class MattermostWebDriver {
         try {
             response = httpclient.execute( request);
             List<String> bodyLines = getBodyValue( response);
-            System.out.println( bodyLines);
+            logger.fine( bodyLines.toString());
+            // XXX これ要る？
+            EntityUtils.consume( response.getEntity());
+        }
+        finally {
+            if ( response != null) {
+                response.close();
+            }
+        }
+    }
+
+    /**
+     * 指定のチャンネルに所属します
+     * @param channelId
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public void joinChannel( String channelId) throws ClientProtocolException, IOException {
+        HttpPost request = createPostRequest( getJoinChannelPath( channelId), "");
+        addAuthHeader( request);
+        CloseableHttpResponse response = null;
+        try {
+            response = httpclient.execute( request);
+            List<String> bodyLines = getBodyValue( response);
+            logger.fine( bodyLines.toString());
             // XXX これ要る？
             EntityUtils.consume( response.getEntity());
         }
@@ -372,8 +399,12 @@ public class MattermostWebDriver {
         return getTeamNeededRoute() + "/channels";
     }
 
+    private String getChannelNeededRoute( String channelId) {
+        return getChannelsRoute() + "/" + channelId;
+    }
+
     private String getPostsRoute( String channelId) {
-        return getChannelsRoute() + "/" + channelId + "/posts";
+        return getChannelNeededRoute( channelId) + "/posts";
     }
 
     private String getLoginPath() {
@@ -390,6 +421,10 @@ public class MattermostWebDriver {
 
     private String getMoreChannelPath() {
         return getChannelsRoute() + "/more";
+    }
+
+    private String getJoinChannelPath( String channelId) {
+        return getChannelNeededRoute( channelId) + "/join";
     }
 
     private String getPostCreatePath( String channelId) {
