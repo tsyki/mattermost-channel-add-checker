@@ -83,6 +83,14 @@ public class MattermostWebDriver {
     }
 
     /**
+     * コネクションを閉じ、利用を完了する。
+     * @throws IOException
+     */
+    public void close() throws IOException {
+        httpclient.close();
+    }
+
+    /**
      * 利用するチームを設定する。<BR>
      * チームに依存したAPIを利用する場合は事前にこのメソッドを呼ぶ必要がある
      * @param teanName

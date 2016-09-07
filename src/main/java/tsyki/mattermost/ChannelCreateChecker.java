@@ -89,41 +89,46 @@ public class ChannelCreateChecker {
 
     public void run( String readedChannelFilePath) throws IOException, ClientProtocolException, UnsupportedEncodingException {
         MattermostWebDriver driver = new MattermostWebDriver();
-        driver.setUrl( mattermostUrl);
-        driver.login( loginId, password);
-        driver.setTeamIdByName( teamName);
+        try {
+            driver.setUrl( mattermostUrl);
+            driver.login( loginId, password);
+            driver.setTeamIdByName( teamName);
 
-        List<Channel> channels = driver.getAllChannels();
-        // 過去のチャンネル一覧を読込
-        File readedChannelFile = new File( readedChannelFilePath);
-        // 過去データがなければ書き込んで終わり
-        if ( !readedChannelFile.exists()) {
-            logger.info( "過去データがないため現在のチャンネルを書き出し終了。");
-            writeChannelIds( readedChannelFilePath, channels);
-            return;
-        }
-        String postChannelId = driver.getChannelIdByName( postChannelName);
-        if ( postChannelId == null) {
-            throw new IllegalStateException( "ポストするチャンネルを取得できません。name=" + postChannelName);
-        }
-        // 過去データと比較
-        List<String> readedIdx = readChannelIds( readedChannelFilePath);
-        for ( Channel channel : channels) {
-            // 過去データにない＝新規追加チャンネルである
-            if ( !readedIdx.contains( channel.getId())) {
-                logger.info( "新規追加チャンネル発見。name=" + channel.getName() + " display_name=" + channel.getDisplayName() + " id=" + channel.getId());
-                String msg = "新規チャンネルが追加されました。name=" + channel.getName() + " 名称=" + channel.getDisplayName();
-                // 指定のチャンネルにログインユーザが居ないと403になるので、自動で所属する
-                // NOTE すでに所属している状態でjoinしても特にエラーはでない
-                driver.joinChannel( postChannelId);
-                driver.post( postChannelId, msg);
+            List<Channel> channels = driver.getAllChannels();
+            // 過去のチャンネル一覧を読込
+            File readedChannelFile = new File( readedChannelFilePath);
+            // 過去データがなければ書き込んで終わり
+            if ( !readedChannelFile.exists()) {
+                logger.info( "過去データがないため現在のチャンネルを書き出し終了。");
+                writeChannelIds( readedChannelFilePath, channels);
+                return;
             }
-            // debug write
-            String format = "id=%s name=%s displayName=%s createAt=%s";
-            logger.fine( String.format( format, channel.getId(), channel.getName(), channel.getDisplayName(), channel.getCreateAt()));
+            String postChannelId = driver.getChannelIdByName( postChannelName);
+            if ( postChannelId == null) {
+                throw new IllegalStateException( "ポストするチャンネルを取得できません。name=" + postChannelName);
+            }
+            // 過去データと比較
+            List<String> readedIdx = readChannelIds( readedChannelFilePath);
+            for ( Channel channel : channels) {
+                // 過去データにない＝新規追加チャンネルである
+                if ( !readedIdx.contains( channel.getId())) {
+                    logger.info( "新規追加チャンネル発見。name=" + channel.getName() + " display_name=" + channel.getDisplayName() + " id=" + channel.getId());
+                    String msg = "新規チャンネルが追加されました。name=" + channel.getName() + " 名称=" + channel.getDisplayName();
+                    // 指定のチャンネルにログインユーザが居ないと403になるので、自動で所属する
+                    // NOTE すでに所属している状態でjoinしても特にエラーはでない
+                    driver.joinChannel( postChannelId);
+                    driver.post( postChannelId, msg);
+                }
+                // debug write
+                String format = "id=%s name=%s displayName=%s createAt=%s";
+                logger.fine( String.format( format, channel.getId(), channel.getName(), channel.getDisplayName(), channel.getCreateAt()));
+            }
+            logger.info( "新規チャンネル探索終了");
+            writeChannelIds( readedChannelFilePath, channels);
         }
-        logger.info( "新規チャンネル探索終了");
-        writeChannelIds( readedChannelFilePath, channels);
+        finally {
+            driver.close();
+        }
     }
 
     private List<String> readChannelIds( String filePath) throws IOException {
