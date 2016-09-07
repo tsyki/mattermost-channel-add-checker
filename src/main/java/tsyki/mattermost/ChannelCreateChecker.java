@@ -1,11 +1,18 @@
 package tsyki.mattermost;
 
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 import org.apache.http.client.ClientProtocolException;
 
@@ -39,14 +46,20 @@ public class ChannelCreateChecker {
 
     private String postChannelName;
 
+    private Logger logger = Logger.getLogger( this.getClass().getName());
+
     public static void main( String[] args) throws IOException {
         String confFilePath = "channel_checker.properties";
         if ( args.length >= 1) {
             confFilePath = args[0];
         }
+        String readedChannnelFilePath = "channels";
+        if ( args.length >= 2) {
+            readedChannnelFilePath = args[1];
+        }
 
         ChannelCreateChecker channelChecker = new ChannelCreateChecker( confFilePath);
-        channelChecker.run();
+        channelChecker.run( readedChannnelFilePath);
     }
 
     private Properties prop = new Properties();
@@ -74,16 +87,48 @@ public class ChannelCreateChecker {
         postChannelName = prop.getProperty( KEY_POST_CANNEL, "timeline");
     }
 
-    public void run() throws IOException, ClientProtocolException, UnsupportedEncodingException {
+    public void run( String readedChannelFilePath) throws IOException, ClientProtocolException, UnsupportedEncodingException {
         MattermostWebDriver driver = new MattermostWebDriver();
         driver.setUrl( mattermostUrl);
         driver.login( loginId, password);
         driver.setTeamIdByName( teamName);
+
         List<Channel> channels = driver.getAllChannels();
-        for ( Channel channel : channels) {
-            String format = "id=%s name=%s displayName=%s createAt=%s";
-            System.out.println( String.format( format, channel.getId(), channel.getName(), channel.getDisplayName(), channel.getCreateAt()));
+        // 過去のチャンネル一覧を読込
+        File readedChannelFile = new File( readedChannelFilePath);
+        // 過去データがなければ書き込んで終わり
+        if ( !readedChannelFile.exists()) {
+            logger.info( "過去データがないため現在のチャンネルを書き出し終了。");
+            writeChannelIds( readedChannelFilePath, channels);
+            return;
         }
+        // 過去データと比較
+        List<String> readedIdx = readChannelIds( readedChannelFilePath);
+        for ( Channel channel : channels) {
+            // 過去データにない＝新規追加チャンネルである
+            if ( !readedIdx.contains( channel.getId())) {
+                // TODO postする
+                System.out.println( "新規チャンネルが追加されました。id=" + channel.getId() + " name=" + channel.getName() + " 名称=" + channel.getDisplayName()
+                        + " createdAt=" + channel.getCreateAt());
+            }
+            // debug write
+            String format = "id=%s name=%s displayName=%s createAt=%s";
+            logger.fine( String.format( format, channel.getId(), channel.getName(), channel.getDisplayName(), channel.getCreateAt()));
+        }
+        logger.info( "新規チャンネル探索終了");
+        writeChannelIds( readedChannelFilePath, channels);
     }
 
+    private List<String> readChannelIds( String filePath) throws IOException {
+        List<String> ids = Files.readAllLines( Paths.get( filePath));
+        return ids;
+    }
+
+    private void writeChannelIds( String filePath, List<Channel> channels) throws IOException {
+        try (BufferedWriter writer = new BufferedWriter( new OutputStreamWriter( new FileOutputStream( filePath)))) {
+            for ( Channel channel : channels) {
+                writer.write( channel.getId() + "\n");
+            }
+        }
+    }
 }
