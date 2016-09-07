@@ -1,9 +1,6 @@
 package tsyki.mattermost.driver;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.LinkedList;
@@ -86,6 +83,14 @@ public class MattermostWebDriver {
     }
 
     /**
+     * コネクションを閉じ、利用を完了する。
+     * @throws IOException
+     */
+    public void close() throws IOException {
+        httpclient.close();
+    }
+
+    /**
      * 利用するチームを設定する。<BR>
      * チームに依存したAPIを利用する場合は事前にこのメソッドを呼ぶ必要がある
      * @param teanName
@@ -96,27 +101,15 @@ public class MattermostWebDriver {
         // XXX find_team_by_nameがうまく動かなかったのでallで取ってから名前で突き合わせる
         HttpGet request = createGetRequest( getAllTeamsPath());
 
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
-            List<String> bodyLines = getBodyValue( response);
-            // NOTE 結果は一行しかない
-            for ( String line : bodyLines) {
-                Map<String, Map<String, String>> result = parseJson( line);
-                for ( Map<String, String> teamMap : result.values()) {
-                    String teamName = teamMap.get( "display_name");
-                    if ( findTeamName.equals( teamName)) {
-                        this.teamId = teamMap.get( "id");
-                        break;
-                    }
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
+            String body = getBodyValue( response);
+            Map<String, Map<String, String>> result = parseJson( body);
+            for ( Map<String, String> teamMap : result.values()) {
+                String teamName = teamMap.get( "display_name");
+                if ( findTeamName.equals( teamName)) {
+                    this.teamId = teamMap.get( "id");
+                    break;
                 }
-            }
-            // XXX これ要る？
-            EntityUtils.consume( response.getEntity());
-        }
-        finally {
-            if ( response != null) {
-                response.close();
             }
         }
 
@@ -156,18 +149,9 @@ public class MattermostWebDriver {
         HttpPost request = createPostRequest( getPostCreatePath( channelId), strJson);
         addAuthHeader( request);
 
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
-            List<String> bodyLines = getBodyValue( response);
-            logger.fine( bodyLines.toString());
-            // XXX これ要る？
-            EntityUtils.consume( response.getEntity());
-        }
-        finally {
-            if ( response != null) {
-                response.close();
-            }
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
+            String body = getBodyValue( response);
+            logger.fine( body.toString());
         }
     }
 
@@ -180,18 +164,9 @@ public class MattermostWebDriver {
     public void joinChannel( String channelId) throws ClientProtocolException, IOException {
         HttpPost request = createPostRequest( getJoinChannelPath( channelId), "");
         addAuthHeader( request);
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
-            List<String> bodyLines = getBodyValue( response);
-            logger.fine( bodyLines.toString());
-            // XXX これ要る？
-            EntityUtils.consume( response.getEntity());
-        }
-        finally {
-            if ( response != null) {
-                response.close();
-            }
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
+            String body = getBodyValue( response);
+            logger.fine( body.toString());
         }
     }
 
@@ -238,32 +213,17 @@ public class MattermostWebDriver {
     private List<Channel> getChannels( String path) throws ClientProtocolException, IOException {
         HttpGet request = createGetRequest( path);
         addAuthHeader( request);
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
-            List<String> allLines = getBodyValue( response);
-            // NOTE 結果は一行しかない
-            for ( String line : allLines) {
-                Map<String, List<Map<String, Object>>> allMap = parseJson( line);
-                List<Map<String, Object>> channelsMap = allMap.get( "channels");
-                List<Channel> channels = new LinkedList<Channel>();
-                for ( Map<String, Object> channelMap : channelsMap) {
-                    Channel channel = parseChannel( channelMap);
-                    channels.add( channel);
-                }
-                return channels;
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
+            String body = getBodyValue( response);
+            Map<String, List<Map<String, Object>>> allMap = parseJson( body);
+            List<Map<String, Object>> channelsMap = allMap.get( "channels");
+            List<Channel> channels = new LinkedList<Channel>();
+            for ( Map<String, Object> channelMap : channelsMap) {
+                Channel channel = parseChannel( channelMap);
+                channels.add( channel);
             }
-
-            // XXX これ要る？
-            EntityUtils.consume( response.getEntity());
+            return channels;
         }
-        finally {
-            if ( response != null) {
-                response.close();
-            }
-        }
-        // ここには来ないはず？チャンネルが一つもない場合も本当にそうかは未検証
-        throw new IllegalStateException();
     }
 
     // Jsonから作成されたチャンネル情報を元にChannelを作成
@@ -320,9 +280,7 @@ public class MattermostWebDriver {
         String strJson = JsonBuilder.builder().put( KEY_LOGIN_ID, loginId).put( KEY_PASSWORD, password).build();
         HttpPost request = createPostRequest( getLoginPath(), strJson);
 
-        CloseableHttpResponse response = null;
-        try {
-            response = httpclient.execute( request);
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
             String authToken;
             try {
                 authToken = getHeaderValue( response, KEY_HEADER_TOKEN);
@@ -332,16 +290,10 @@ public class MattermostWebDriver {
                 throw new IllegalStateException( "認証用トークンが取得できません。チーム名、ユーザ名、パスワードが正しいか確認してください。response=" + response);
             }
 
-            // XXX これ必要？
             HttpEntity entity = response.getEntity();
             EntityUtils.consume( entity);
 
             this.authToken = authToken;
-        }
-        finally {
-            if ( response != null) {
-                response.close();
-            }
         }
     }
 
@@ -357,19 +309,14 @@ public class MattermostWebDriver {
         return tokenHeaders[0].getValue();
     }
 
-    private List<String> getBodyValue( CloseableHttpResponse response) throws IOException {
-        List<String> lines = new LinkedList<String>();
+    private String getBodyValue( CloseableHttpResponse response) throws IOException {
         if ( response.getStatusLine().getStatusCode() != 200) {
             throw new IllegalStateException( response.toString());
         }
         HttpEntity entity = response.getEntity();
-        InputStream content = entity.getContent();
-        BufferedReader br = new BufferedReader( new InputStreamReader( content));
-        String line;
-        while ( (line = br.readLine()) != null) {
-            lines.add( line);
-        }
-        return lines;
+        String result = EntityUtils.toString( entity);
+        EntityUtils.consume( response.getEntity());
+        return result;
     }
 
     // 以下URL系
