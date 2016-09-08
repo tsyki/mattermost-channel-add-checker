@@ -94,7 +94,8 @@ public class ChannelCreateChecker {
             driver.login( loginId, password);
             driver.setTeamIdByName( teamName);
 
-            List<Channel> channels = driver.getAllChannels();
+            // 非公開チャンネル、DirectMessageの追加は見ない
+            List<Channel> channels = driver.getAllPublicChannels();
             // 過去のチャンネル一覧を読込
             File readedChannelFile = new File( readedChannelFilePath);
             // 過去データがなければ書き込んで終わり

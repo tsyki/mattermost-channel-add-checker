@@ -7,6 +7,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -191,7 +192,19 @@ public class MattermostWebDriver {
     }
 
     /**
-     * ログインユーザが参加しているチャンネル一覧を返します
+     * ログインユーザが参照可能な全ての公開チャンネルを返します(参加していないチャンネルも含む)
+     * @return
+     * @throws IOException
+     * @throws ClientProtocolException
+     */
+    public List<Channel> getAllPublicChannels() throws ClientProtocolException, IOException {
+        List<Channel> channels = getAllChannels();
+        // DirectMessage、非公開チャンネルは除外
+        return channels.stream().filter( c -> c.isPublicChannel()).collect( Collectors.toList());
+    }
+
+    /**
+     * ログインユーザが参加しているチャンネル一覧を返します。ダイレクトメッセージ、非公開チャンネルも含まれます
      * @return
      * @throws ClientProtocolException
      * @throws IOException
@@ -232,6 +245,7 @@ public class MattermostWebDriver {
         channel.setId( ( String) channelMap.get( "id"));
         channel.setName( ( String) channelMap.get( "name"));
         channel.setDisplayName( ( String) channelMap.get( "display_name"));
+        channel.setType( ( String) channelMap.get( "type"));
         Date createAt = new Date( ( Long) channelMap.get( "create_at"));
         channel.setCreateAt( createAt);
         // XXX 作成直後はcreate_atと同じ値になっているのだろうか？
