@@ -44,6 +44,9 @@ public class MattermostWebDriver {
     /** ログイン結果のトークンが格納されているヘッダキー */
     private static final String KEY_HEADER_TOKEN = "Token";
 
+    /** 送受信で使う文字コード */
+    private static final String ENCODING = "UTF-8";
+
     private Logger logger = Logger.getLogger( this.getClass().getName());
 
     private CloseableHttpClient httpclient;
@@ -254,7 +257,7 @@ public class MattermostWebDriver {
     private HttpPost createPostRequest( String postPath, String postJson) throws UnsupportedEncodingException {
         HttpPost request = new HttpPost( postPath);
 
-        StringEntity body = new StringEntity( postJson, "UTF-8");
+        StringEntity body = new StringEntity( postJson, ENCODING);
         request.addHeader( "Content-type", "application/json");
         request.setEntity( body);
 
@@ -314,7 +317,7 @@ public class MattermostWebDriver {
             throw new IllegalStateException( response.toString());
         }
         HttpEntity entity = response.getEntity();
-        String result = EntityUtils.toString( entity);
+        String result = EntityUtils.toString( entity, ENCODING);
         EntityUtils.consume( response.getEntity());
         return result;
     }
