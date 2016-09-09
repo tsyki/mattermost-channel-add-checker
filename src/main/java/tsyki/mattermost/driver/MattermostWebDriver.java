@@ -97,7 +97,7 @@ public class MattermostWebDriver {
     /**
      * 利用するチームを設定する。<BR>
      * チームに依存したAPIを利用する場合は事前にこのメソッドを呼ぶ必要がある
-     * @param teanName チームの名称(表示名ではなくURKに現れるもの)
+     * @param teanName チームの名称(表示名ではなくURLに現れるもの)
      * @throws IOException
      * @throws ClientProtocolException
      */
@@ -165,13 +165,11 @@ public class MattermostWebDriver {
 
     /**
      * Incoming Webhookを使って投稿します
-     * @param channelId
-     * @param msg
-     * @param postIconUrl
-     * @param postUserName
-     * @param postChannelName
-     * @throws ClientProtocolException
-     * @throws IOException
+     * @param webhookUrl Incoming Webhookで表示されるURL
+     * @param msg 投稿する文面
+     * @param postChannelName 投稿するチャンネル。空ならばIncoming Webhookで指定したチャンネルが使われる
+     * @param postUserName 投稿するユーザ名。空ならばデフォルト(Webhook)となる
+     * @param postIconUrl 投稿するユーザのアイコン。空ならばWebhookのデフォルトのものとなる
      */
     public void postIncomingWebhook( String webhookUrl, String msg, String postChannelName, String postUserName, String postIconUrl)
             throws ClientProtocolException, IOException {
