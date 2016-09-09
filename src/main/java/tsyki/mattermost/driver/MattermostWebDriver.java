@@ -428,8 +428,4 @@ public class MattermostWebDriver {
     private String getPostCreatePath( String channelId) {
         return getPostsRoute( channelId) + "/create";
     }
-
-    private String getWebhookPath( String token) {
-        return getUrl() + "/hooks/" + token;
-    }
 }
