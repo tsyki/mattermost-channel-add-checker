@@ -9,12 +9,16 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.apache.commons.beanutils.BeanUtils;
 import org.apache.http.client.ClientProtocolException;
 
 import tsyki.mattermost.driver.Channel;
@@ -37,6 +41,11 @@ public class ChannelCreateChecker {
 
     private static final String KEY_POST_CANNEL = "post_channel_name";
 
+	  private static final String KEY_POST_MESSAGE_TEMPALGE = "post_message_template";
+
+    /** 投稿メッセージの中のプロパティの値で置換する文字列のパターン。{{name}} のような形 */
+    private static final String PROP_REPLACE_PATTERN_STR = "\\{\\{(.*?)\\}\\}";
+
     private static final String KEY_INCOMING_WEBHOOK_URL = "incoming_webhook_url";
 
     private static final String KEY_POST_USER_NAME = "post_user_name";
@@ -53,6 +62,8 @@ public class ChannelCreateChecker {
 
     private String postChannelName;
 
+    private String postMessageTemplate;
+
     private String incomingWebhookUrl;
 
     private String postUserName;
@@ -61,7 +72,7 @@ public class ChannelCreateChecker {
 
     private Logger logger = Logger.getLogger( this.getClass().getName());
 
-    public static void main( String[] args) throws IOException {
+    public static void main( String[] args) throws IOException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
         String confFilePath = "channel_checker.properties";
         if ( args.length >= 1) {
             confFilePath = args[0];
@@ -98,12 +109,14 @@ public class ChannelCreateChecker {
         loginId = prop.getProperty( KEY_LOGIN_ID);
         password = prop.getProperty( KEY_PASSWORD);
         postChannelName = prop.getProperty( KEY_POST_CANNEL);
+        postMessageTemplate = prop.getProperty( KEY_POST_MESSAGE_TEMPALGE);
         incomingWebhookUrl = prop.getProperty( KEY_INCOMING_WEBHOOK_URL);
         postUserName = prop.getProperty( KEY_POST_USER_NAME);
         postIconUrl = prop.getProperty( KEY_POST_ICON_URL);
     }
 
-    public void run( String readedChannelFilePath) throws IOException, ClientProtocolException, UnsupportedEncodingException {
+    public void run( String readedChannelFilePath) throws IOException, ClientProtocolException, UnsupportedEncodingException, IllegalAccessException,
+            InvocationTargetException, NoSuchMethodException {
         MattermostWebDriver driver = new MattermostWebDriver();
         try {
             driver.setUrl( mattermostUrl);
@@ -133,7 +146,7 @@ public class ChannelCreateChecker {
                 // 過去データにない＝新規追加チャンネルである
                 if ( !readedIdx.contains( channel.getId())) {
                     logger.info( "新規追加チャンネル発見。name=" + channel.getName() + " display_name=" + channel.getDisplayName() + " id=" + channel.getId());
-                    String msg = "新規チャンネルが追加されました。name=" + channel.getName() + " 名称=" + channel.getDisplayName();
+                    String msg = createPostMessage( channel, postMessageTemplate);
                     driver.postIncomingWebhook( incomingWebhookUrl, msg, postChannelName, postUserName, postIconUrl);
                 }
                 // debug write
@@ -146,6 +159,25 @@ public class ChannelCreateChecker {
         finally {
             driver.close();
         }
+    }
+
+    /**
+     * 投稿メッセージのテンプレートをチャンネルの値で置換して返す
+     */
+    private String createPostMessage( Channel channel, String postMessageTemplate) throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+        String resultMsg = postMessageTemplate;
+        Pattern p = Pattern.compile( PROP_REPLACE_PATTERN_STR);
+        Matcher m = p.matcher( resultMsg);
+        while ( m.find()) {
+            String propertyName = m.group( 1);
+            // 取得したプロパティ名から値を取得
+            String value = BeanUtils.getProperty( channel, propertyName);
+            // その値で置換
+            resultMsg = m.replaceFirst( value);
+            m = p.matcher( resultMsg);
+        }
+        return resultMsg;
     }
 
     private List<String> readChannelIds( String filePath) throws IOException {
