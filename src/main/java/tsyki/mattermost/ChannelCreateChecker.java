@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
@@ -36,6 +37,12 @@ public class ChannelCreateChecker {
 
     private static final String KEY_POST_CANNEL = "post_channel_name";
 
+    private static final String KEY_INCOMING_WEBHOOK_URL = "incoming_webhook_url";
+
+    private static final String KEY_POST_USER_NAME = "post_user_name";
+
+    private static final String KEY_POST_ICON_URL = "post_icon_url";
+
     private String mattermostUrl;
 
     private String teamName;
@@ -45,6 +52,12 @@ public class ChannelCreateChecker {
     private String password;
 
     private String postChannelName;
+
+    private String incomingWebhookUrl;
+
+    private String postUserName;
+
+    private String postIconUrl;
 
     private Logger logger = Logger.getLogger( this.getClass().getName());
 
@@ -72,7 +85,7 @@ public class ChannelCreateChecker {
         InputStream is = null;
         try {
             is = new FileInputStream( confFilePath);
-            prop.load( is);
+            prop.load( new InputStreamReader( is, "UTF-8"));
             is.close();
         }
         finally {
@@ -85,6 +98,9 @@ public class ChannelCreateChecker {
         loginId = prop.getProperty( KEY_LOGIN_ID);
         password = prop.getProperty( KEY_PASSWORD);
         postChannelName = prop.getProperty( KEY_POST_CANNEL);
+        incomingWebhookUrl = prop.getProperty( KEY_INCOMING_WEBHOOK_URL);
+        postUserName = prop.getProperty( KEY_POST_USER_NAME);
+        postIconUrl = prop.getProperty( KEY_POST_ICON_URL);
     }
 
     public void run( String readedChannelFilePath) throws IOException, ClientProtocolException, UnsupportedEncodingException {
@@ -104,9 +120,12 @@ public class ChannelCreateChecker {
                 writeChannelIds( readedChannelFilePath, channels);
                 return;
             }
-            String postChannelId = driver.getChannelIdByName( postChannelName);
-            if ( postChannelId == null) {
-                throw new IllegalStateException( "ポストするチャンネルを取得できません。name=" + postChannelName);
+            // 投稿するチャンネル指定があれば存在するかバリデートしておく
+            if ( postChannelName != null && !postChannelName.isEmpty()) {
+                String postChannelId = driver.getChannelIdByName( postChannelName);
+                if ( postChannelId == null) {
+                    throw new IllegalStateException( "ポストするチャンネルを取得できません。name=" + postChannelName);
+                }
             }
             // 過去データと比較
             List<String> readedIdx = readChannelIds( readedChannelFilePath);
@@ -115,10 +134,7 @@ public class ChannelCreateChecker {
                 if ( !readedIdx.contains( channel.getId())) {
                     logger.info( "新規追加チャンネル発見。name=" + channel.getName() + " display_name=" + channel.getDisplayName() + " id=" + channel.getId());
                     String msg = "新規チャンネルが追加されました。name=" + channel.getName() + " 名称=" + channel.getDisplayName();
-                    // 指定のチャンネルにログインユーザが居ないと403になるので、自動で所属する
-                    // NOTE すでに所属している状態でjoinしても特にエラーはでない
-                    driver.joinChannel( postChannelId);
-                    driver.post( postChannelId, msg);
+                    driver.postIncomingWebhook( incomingWebhookUrl, msg, postChannelName, postUserName, postIconUrl);
                 }
                 // debug write
                 String format = "id=%s name=%s displayName=%s createAt=%s";

@@ -159,6 +159,42 @@ public class MattermostWebDriver {
         }
     }
 
+    private static boolean isEmpty( String str) {
+        return str == null || str.isEmpty();
+    }
+
+    /**
+     * Incoming Webhookを使って投稿します
+     * @param channelId
+     * @param msg
+     * @param postIconUrl
+     * @param postUserName
+     * @param postChannelName
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public void postIncomingWebhook( String webhookUrl, String msg, String postChannelName, String postUserName, String postIconUrl)
+            throws ClientProtocolException, IOException {
+
+        JsonBuilder jsonBuilder = JsonBuilder.builder();
+        jsonBuilder.put( "text", msg);
+        if ( !isEmpty( postChannelName)) {
+            jsonBuilder.put( "channel", postChannelName);
+        }
+        if ( !isEmpty( postUserName)) {
+            jsonBuilder.put( "username", postUserName);
+        }
+        if ( !isEmpty( postIconUrl)) {
+            jsonBuilder.put( "icon_url", postIconUrl);
+        }
+        HttpPost request = createPostRequest( webhookUrl, jsonBuilder.build());
+
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
+            String body = getBodyValue( response);
+            logger.fine( body.toString());
+        }
+    }
+
     /**
      * 指定のチャンネルに所属します
      * @param channelId
@@ -395,4 +431,7 @@ public class MattermostWebDriver {
         return getPostsRoute( channelId) + "/create";
     }
 
+    private String getWebhookPath( String token) {
+        return getUrl() + "/hooks/" + token;
+    }
 }
