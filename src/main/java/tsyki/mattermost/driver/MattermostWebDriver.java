@@ -97,7 +97,7 @@ public class MattermostWebDriver {
     /**
      * 利用するチームを設定する。<BR>
      * チームに依存したAPIを利用する場合は事前にこのメソッドを呼ぶ必要がある
-     * @param teanName
+     * @param teanName チームの名称(表示名ではなくURKに現れるもの)
      * @throws IOException
      * @throws ClientProtocolException
      */
@@ -109,7 +109,7 @@ public class MattermostWebDriver {
             String body = getBodyValue( response);
             Map<String, Map<String, String>> result = parseJson( body);
             for ( Map<String, String> teamMap : result.values()) {
-                String teamName = teamMap.get( "display_name");
+                String teamName = teamMap.get( "name");
                 if ( findTeamName.equals( teamName)) {
                     this.teamId = teamMap.get( "id");
                     break;
