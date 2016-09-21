@@ -102,7 +102,7 @@ public class MattermostWebDriver {
      * @throws ClientProtocolException
      */
     public void setTeamIdByName( String findTeamName) throws ClientProtocolException, IOException {
-        // XXX find_team_by_nameがうまく動かなかったのでallで取ってから名前で突き合わせる
+        // NOTE find_team_by_nameというAPIがあるが、これはチャンネルの有無を返すだけで使えなかった。なのでallで取ってから名前で突き合わせる
         HttpGet request = createGetRequest( getAllTeamsPath());
 
         try (CloseableHttpResponse response = httpclient.execute( request)) {
