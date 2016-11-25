@@ -2,6 +2,7 @@ package tsyki.mattermost.driver;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -21,11 +22,11 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
-import tsyki.util.JsonBuilder;
-
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import tsyki.util.JsonBuilder;
 
 /**
  * MattermostのAPIを叩くクラス<BR>
@@ -45,6 +46,9 @@ public class MattermostWebDriver {
     /** ログイン結果のトークンが格納されているヘッダキー */
     private static final String KEY_HEADER_TOKEN = "Token";
 
+    /** mattermostのバージョンが格納されているヘッダキー */
+    private static final String KEY_MATTERMOST_VERSION = "X-Version-Id";
+
     /** 送受信で使う文字コード */
     private static final String ENCODING = "UTF-8";
 
@@ -54,6 +58,9 @@ public class MattermostWebDriver {
 
     /** mattermostのホスト名。例：http://yourdomain.com。最後に/は付けない */
     private String url;
+
+    /** mattermostのバージョン。3.5.0.3.5.1.5be7bb983a7b7b8d5949dffc6cccad6eのような文字列 */
+    private String mattermostVersion;
 
     /** APIのバージョン */
     private String urlVersion;
@@ -107,7 +114,7 @@ public class MattermostWebDriver {
 
         try (CloseableHttpResponse response = httpclient.execute( request)) {
             String body = getBodyValue( response);
-            Map<String, Map<String, String>> result = parseJson( body);
+            Map<String, Map<String, String>> result = parseJsonToMap( body);
             for ( Map<String, String> teamMap : result.values()) {
                 String teamName = teamMap.get( "name");
                 if ( findTeamName.equals( teamName)) {
@@ -208,10 +215,17 @@ public class MattermostWebDriver {
         }
     }
 
-    private <T> Map<String, T> parseJson( String json) throws JsonParseException, JsonMappingException, IOException {
+    private <T> Map<String, T> parseJsonToMap( String json) throws JsonParseException, JsonMappingException, IOException {
         ObjectMapper mapper = new ObjectMapper();
         @SuppressWarnings( "unchecked")
         Map<String, T> result = mapper.readValue( json, Map.class);
+        return result;
+    }
+
+    private <T> List<T> parseJsonToList( String json) throws JsonParseException, JsonMappingException, IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        @SuppressWarnings( "unchecked")
+        List<T> result = ( List<T>) mapper.readValue( json, List.class);
         return result;
     }
 
@@ -265,8 +279,7 @@ public class MattermostWebDriver {
         addAuthHeader( request);
         try (CloseableHttpResponse response = httpclient.execute( request)) {
             String body = getBodyValue( response);
-            Map<String, List<Map<String, Object>>> allMap = parseJson( body);
-            List<Map<String, Object>> channelsMap = allMap.get( "channels");
+            List<Map<String, Object>> channelsMap = parseChannelJson( body);
             List<Channel> channels = new LinkedList<Channel>();
             for ( Map<String, Object> channelMap : channelsMap) {
                 Channel channel = parseChannel( channelMap);
@@ -274,6 +287,46 @@ public class MattermostWebDriver {
             }
             return channels;
         }
+    }
+
+    // getChannelの結果をmattermostのバージョンに応じてparse
+    private List<Map<String, Object>> parseChannelJson( String body) throws JsonParseException, JsonMappingException, IOException {
+        // 3.4以前のもの
+        if ( isLessThanOrEqualVersion( new BigDecimal( "3.4"))) {
+            return parseChannelJson_3_4( body);
+        }
+        else {
+            return parseChannelJson_3_5( body);
+        }
+    }
+
+    /**
+     * mattermostのバージョンが引数以下かどうかを判定する
+     * @param version 3.5のような値
+     * @return
+     */
+    private boolean isLessThanOrEqualVersion( BigDecimal version) {
+        if ( mattermostVersion == null) {
+            throw new NullPointerException( "mattermostVersion is not initialized.");
+        }
+        String[] dividedVersionStrs = mattermostVersion.split( "\\.");
+        // 3.5のような文字列を作る
+        String versionNumStr = dividedVersionStrs[0] + "." + dividedVersionStrs[1];
+        BigDecimal mattermostVersionNum = new BigDecimal( versionNumStr);
+        return mattermostVersionNum.compareTo( version) <= 0;
+    }
+
+    // mattermost3.4のgetChannelの結果をパース
+    private List<Map<String, Object>> parseChannelJson_3_4( String body) throws JsonParseException, JsonMappingException, IOException {
+        Map<String, List<Map<String, Object>>> allMap = parseJsonToMap( body);
+        List<Map<String, Object>> channelsMap = allMap.get( "channels");
+        return channelsMap;
+    }
+
+    // mattermost3.5以降のgetChannelの結果をパース
+    private List<Map<String, Object>> parseChannelJson_3_5( String body) throws JsonParseException, JsonMappingException, IOException {
+        List<Map<String, Object>> channelsMap = parseJsonToList( body);
+        return channelsMap;
     }
 
     // Jsonから作成されたチャンネル情報を元にChannelを作成
@@ -335,6 +388,7 @@ public class MattermostWebDriver {
             String authToken;
             try {
                 authToken = getHeaderValue( response, KEY_HEADER_TOKEN);
+                this.mattermostVersion = getHeaderValue( response, KEY_MATTERMOST_VERSION);
             }
             catch ( Exception e) {
                 // TODO アドレスが不正とか、ユーザ名、パスワードが不正とかちゃんと区別する
@@ -353,7 +407,7 @@ public class MattermostWebDriver {
             throw new IllegalStateException( response.getStatusLine().toString());
         }
 
-        Header[] tokenHeaders = response.getHeaders( KEY_HEADER_TOKEN);
+        Header[] tokenHeaders = response.getHeaders( headerName);
         if ( tokenHeaders == null || tokenHeaders.length == 0) {
             throw new IllegalStateException( headerName + " is not exists in header.");
         }
