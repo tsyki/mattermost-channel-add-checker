@@ -1,4 +1,4 @@
-package tsyki.util;
+package jp.gr.java_conf.tsyki.util;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -8,10 +8,11 @@ import java.util.Map.Entry;
 /**
  * key,valueを指定してJson文字列を作成する。<BR>
  * 利用例<BR>
- * 
+ *
  * <pre>
  * JsonBuilder.builder().put( &quot;user_name&quot;, &quot;hoge&quot;).put( &quot;password&quot;, &quot;piyo&quot;).build();
  * </pre>
+ *
  * @author TOSHIYUKI.IMAIZUMI
  * @since 2016/09/02
  */

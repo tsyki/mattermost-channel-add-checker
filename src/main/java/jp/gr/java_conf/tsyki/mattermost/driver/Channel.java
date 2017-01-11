@@ -1,4 +1,4 @@
-package tsyki.mattermost.driver;
+package jp.gr.java_conf.tsyki.mattermost.driver;
 
 import java.util.Date;
 

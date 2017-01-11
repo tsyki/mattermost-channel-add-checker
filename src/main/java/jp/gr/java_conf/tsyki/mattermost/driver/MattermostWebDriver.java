@@ -1,4 +1,4 @@
-package tsyki.mattermost.driver;
+package jp.gr.java_conf.tsyki.mattermost.driver;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -26,7 +26,7 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import tsyki.util.JsonBuilder;
+import jp.gr.java_conf.tsyki.util.JsonBuilder;
 
 /**
  * MattermostのAPIを叩くクラス<BR>

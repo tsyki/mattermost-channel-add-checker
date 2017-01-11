@@ -1,4 +1,4 @@
-package tsyki.mattermost;
+package jp.gr.java_conf.tsyki.mattermost;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -21,8 +21,8 @@ import java.util.regex.Pattern;
 import org.apache.commons.beanutils.BeanUtils;
 import org.apache.http.client.ClientProtocolException;
 
-import tsyki.mattermost.driver.Channel;
-import tsyki.mattermost.driver.MattermostWebDriver;
+import jp.gr.java_conf.tsyki.mattermost.driver.Channel;
+import jp.gr.java_conf.tsyki.mattermost.driver.MattermostWebDriver;
 
 /**
  * Mattermostにチャンネルが追加された場合にその情報を特定チャンネルにポストします
@@ -41,7 +41,7 @@ public class ChannelCreateChecker {
 
     private static final String KEY_POST_CANNEL = "post_channel_name";
 
-	  private static final String KEY_POST_MESSAGE_TEMPALGE = "post_message_template";
+    private static final String KEY_POST_MESSAGE_TEMPALGE = "post_message_template";
 
     /** 投稿メッセージの中のプロパティの値で置換する文字列のパターン。{{name}} のような形 */
     private static final String PROP_REPLACE_PATTERN_STR = "\\{\\{(.*?)\\}\\}";
@@ -164,8 +164,8 @@ public class ChannelCreateChecker {
     /**
      * 投稿メッセージのテンプレートをチャンネルの値で置換して返す
      */
-    private String createPostMessage( Channel channel, String postMessageTemplate) throws IllegalAccessException, InvocationTargetException,
-            NoSuchMethodException {
+    private String createPostMessage( Channel channel, String postMessageTemplate)
+            throws IllegalAccessException, InvocationTargetException, NoSuchMethodException {
         String resultMsg = postMessageTemplate;
         Pattern p = Pattern.compile( PROP_REPLACE_PATTERN_STR);
         Matcher m = p.matcher( resultMsg);
