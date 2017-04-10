@@ -271,7 +271,26 @@ public class MattermostWebDriver {
      * @throws IOException
      */
     public List<Channel> getMoreChannels() throws ClientProtocolException, IOException {
-        return getChannels( getMoreChannelPath());
+        // 3.7以前のもの
+        if ( isLessThanOrEqualVersion( new BigDecimal( "3.7"))) {
+            return getMoreChannels_3_7();
+        }
+        else {
+            return getMoreChannels_3_8();
+        }
+
+    }
+
+    private List<Channel> getMoreChannels_3_7() throws ClientProtocolException, IOException {
+        return getChannels( getMoreChannelPath_3_7());
+    }
+
+    private List<Channel> getMoreChannels_3_8() throws ClientProtocolException, IOException {
+        // NOTE 最初のページのoffsetは0
+        final int offset = 0;
+        // 全件取りたいので適当に大きな値をlimitに設定
+        final int limit = Integer.MAX_VALUE;
+        return getChannels( getMoreChannelPath3_8( offset, limit));
     }
 
     private List<Channel> getChannels( String path) throws ClientProtocolException, IOException {
@@ -471,8 +490,14 @@ public class MattermostWebDriver {
         return getChannelsRoute() + "/";
     }
 
-    private String getMoreChannelPath() {
+    private String getMoreChannelPath_3_7() {
+        // /channels/more
         return getChannelsRoute() + "/more";
+    }
+
+    private String getMoreChannelPath3_8( int offset, int limit) {
+        // channels/more/{offset}/{limit}
+        return getChannelsRoute() + "/more/" + offset + "/" + limit;
     }
 
     private String getJoinChannelPath( String channelId) {
