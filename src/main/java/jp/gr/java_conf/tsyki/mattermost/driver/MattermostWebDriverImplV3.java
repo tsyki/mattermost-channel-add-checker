@@ -40,7 +40,7 @@ import jp.gr.java_conf.tsyki.util.JsonBuilder;
  * @author TOSHIYUKI.IMAIZUMI
  * @since 2016/09/07
  */
-public class MattermostWebDriverV3 {
+public class MattermostWebDriverImplV3 implements MattermostWebDriver {
 
     /** ログイン時のログインIDポスト用キー */
     private static final String KEY_LOGIN_ID = "login_id";
@@ -76,7 +76,7 @@ public class MattermostWebDriverV3 {
     /** ログイン時に生成される認証用トークン */
     private String authToken;
 
-    public MattermostWebDriverV3() {
+    public MattermostWebDriverImplV3() {
         this.httpclient = HttpClients.createDefault();
         this.urlVersion = "/api/v3";
     }
@@ -94,6 +94,7 @@ public class MattermostWebDriverV3 {
      * mattermostのホスト名を設定する。<BR>
      * 例：http://yourdomain.com。最後に/は付けない
      */
+    @Override
     public void setUrl( String url) {
         this.url = url;
     }
@@ -102,6 +103,7 @@ public class MattermostWebDriverV3 {
      * コネクションを閉じ、利用を完了する。
      * @throws IOException
      */
+    @Override
     public void close() throws IOException {
         httpclient.close();
     }
@@ -113,6 +115,7 @@ public class MattermostWebDriverV3 {
      * @throws IOException
      * @throws ClientProtocolException
      */
+    @Override
     public void setTeamIdByName( String findTeamName) throws ClientProtocolException, IOException {
         // NOTE find_team_by_nameというAPIがあるが、これはチャンネルの有無を返すだけで使えなかった。なのでallで取ってから名前で突き合わせる
         HttpGet request = createGetRequest( getAllTeamsPath());
@@ -138,6 +141,7 @@ public class MattermostWebDriverV3 {
      * @throws ClientProtocolException
      * @throws IOException
      */
+    @Override
     public String getChannelIdByName( String findChannelName) throws ClientProtocolException, IOException {
         // XXX nameからチャンネルを取得する専用のAPIがあるのかもしれないが、見つからなかったので全部取ってきて探す。イマイチ。
         List<Channel> channels = getAllChannels();
@@ -183,6 +187,7 @@ public class MattermostWebDriverV3 {
      * @param postUserName 投稿するユーザ名。空ならばデフォルト(Webhook)となる
      * @param postIconUrl 投稿するユーザのアイコン。空ならばWebhookのデフォルトのものとなる
      */
+    @Override
     public void postIncomingWebhook( String webhookUrl, String msg, String postChannelName, String postUserName, String postIconUrl)
             throws ClientProtocolException, IOException {
 
@@ -253,6 +258,7 @@ public class MattermostWebDriverV3 {
      * @throws IOException
      * @throws ClientProtocolException
      */
+    @Override
     public List<Channel> getAllPublicChannels() throws ClientProtocolException, IOException {
         List<Channel> channels = getAllChannels();
         // DirectMessage、非公開チャンネルは除外
@@ -404,6 +410,7 @@ public class MattermostWebDriverV3 {
      * @throws ClientProtocolException
      * @throws IOException
      */
+    @Override
     public void login( String loginId, String password) throws ClientProtocolException, IOException {
         String strJson = JsonBuilder.builder().put( KEY_LOGIN_ID, loginId).put( KEY_PASSWORD, password).build();
         HttpPost request = createPostRequest( getLoginPath(), strJson);

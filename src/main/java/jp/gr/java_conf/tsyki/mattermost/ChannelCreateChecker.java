@@ -28,6 +28,8 @@ import org.apache.http.client.ClientProtocolException;
 
 import jp.gr.java_conf.tsyki.mattermost.driver.Channel;
 import jp.gr.java_conf.tsyki.mattermost.driver.MattermostWebDriver;
+import jp.gr.java_conf.tsyki.mattermost.driver.MattermostWebDriverImpl;
+import jp.gr.java_conf.tsyki.mattermost.driver.MattermostWebDriverImplV3;
 
 /**
  * Mattermostにチャンネルが追加された場合にその情報を特定チャンネルにポストします
@@ -57,6 +59,8 @@ public class ChannelCreateChecker {
 
     private static final String KEY_POST_ICON_URL = "post_icon_url";
 
+    private static final String KEY_MATTERMOST_MAJOR_VERSION = "mattermost_major_version";
+
     private String mattermostUrl;
 
     private String teamName;
@@ -74,6 +78,8 @@ public class ChannelCreateChecker {
     private String postUserName;
 
     private String postIconUrl;
+
+    private String mattermostMajorVersion;
 
     private Logger logger = Logger.getLogger( this.getClass().getName());
 
@@ -118,11 +124,12 @@ public class ChannelCreateChecker {
         incomingWebhookUrl = prop.getProperty( KEY_INCOMING_WEBHOOK_URL);
         postUserName = prop.getProperty( KEY_POST_USER_NAME);
         postIconUrl = prop.getProperty( KEY_POST_ICON_URL);
+        mattermostMajorVersion = prop.getProperty( KEY_MATTERMOST_MAJOR_VERSION);
     }
 
     public void run( String readedChannelFilePath) throws IOException, ClientProtocolException, UnsupportedEncodingException, IllegalAccessException,
             InvocationTargetException, NoSuchMethodException {
-        MattermostWebDriver driver = new MattermostWebDriver();
+        MattermostWebDriver driver = createWebDriver( mattermostMajorVersion);
         try {
             driver.setUrl( mattermostUrl);
             driver.login( loginId, password);
@@ -164,6 +171,23 @@ public class ChannelCreateChecker {
         finally {
             driver.close();
         }
+    }
+
+    private MattermostWebDriver createWebDriver( String mattermostMajorVersion) {
+        if ( mattermostMajorVersion == null) {
+            return new MattermostWebDriverImpl();
+        }
+        int majorVersion;
+        try {
+            majorVersion = Integer.parseInt( mattermostMajorVersion);
+        }
+        catch ( NumberFormatException e) {
+            throw new IllegalStateException( "Mattermostのメジャーバージョンが数値ではありません。mattermost_major_version=" + mattermostMajorVersion);
+        }
+        if ( majorVersion <= 3) {
+            return new MattermostWebDriverImplV3();
+        }
+        return new MattermostWebDriverImpl();
     }
 
     /**
