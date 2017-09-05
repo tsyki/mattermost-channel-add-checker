@@ -34,13 +34,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jp.gr.java_conf.tsyki.util.JsonBuilder;
 
 /**
- * MattermostのAPIを叩くクラス<BR>
+ * MattermostのAPIを叩くクラス(3.x用)<BR>
  * 以下のJSのドライバ互換<BR>
  * https://github.com/mattermost/mattermost-driver-javascript/blob/master/client.jsx
  * @author TOSHIYUKI.IMAIZUMI
  * @since 2016/09/07
  */
-public class MattermostWebDriver {
+public class MattermostWebDriverV3 {
 
     /** ログイン時のログインIDポスト用キー */
     private static final String KEY_LOGIN_ID = "login_id";
@@ -76,9 +76,9 @@ public class MattermostWebDriver {
     /** ログイン時に生成される認証用トークン */
     private String authToken;
 
-    public MattermostWebDriver() {
+    public MattermostWebDriverV3() {
         this.httpclient = HttpClients.createDefault();
-        this.urlVersion = "/api/v4";
+        this.urlVersion = "/api/v3";
     }
 
     /**
@@ -114,14 +114,21 @@ public class MattermostWebDriver {
      * @throws ClientProtocolException
      */
     public void setTeamIdByName( String findTeamName) throws ClientProtocolException, IOException {
-        HttpGet request = createGetRequest( getTeamByNamePath( findTeamName));
-        addAuthHeader( request);
+        // NOTE find_team_by_nameというAPIがあるが、これはチャンネルの有無を返すだけで使えなかった。なのでallで取ってから名前で突き合わせる
+        HttpGet request = createGetRequest( getAllTeamsPath());
 
         try (CloseableHttpResponse response = httpclient.execute( request)) {
             String body = getBodyValue( response);
-            Map<String, String> teamMap = parseJsonToMap( body);
-            this.teamId = teamMap.get( "id");
+            Map<String, Map<String, String>> result = parseJsonToMap( body);
+            for ( Map<String, String> teamMap : result.values()) {
+                String teamName = teamMap.get( "name");
+                if ( findTeamName.equals( teamName)) {
+                    this.teamId = teamMap.get( "id");
+                    break;
+                }
+            }
         }
+
     }
 
     /**
@@ -132,18 +139,14 @@ public class MattermostWebDriver {
      * @throws IOException
      */
     public String getChannelIdByName( String findChannelName) throws ClientProtocolException, IOException {
-        HttpGet request = createGetRequest( getChannelByNamePath( findChannelName));
-        addAuthHeader( request);
-
-        try (CloseableHttpResponse response = httpclient.execute( request)) {
-            String body = getBodyValue( response);
-            Map<String, String> channelMap = parseJsonToMap( body);
-            return channelMap.get( "id");
+        // XXX nameからチャンネルを取得する専用のAPIがあるのかもしれないが、見つからなかったので全部取ってきて探す。イマイチ。
+        List<Channel> channels = getAllChannels();
+        for ( Channel channel : channels) {
+            if ( findChannelName.equals( channel.getName())) {
+                return channel.getId();
+            }
         }
-    }
-
-    private String getChannelByNamePath( String name) {
-        return getChannelsRoute() + "/name/" + name;
+        return null;
     }
 
     /**
@@ -202,6 +205,21 @@ public class MattermostWebDriver {
         }
     }
 
+    /**
+     * 指定のチャンネルに所属します
+     * @param channelId
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public void joinChannel( String channelId) throws ClientProtocolException, IOException {
+        HttpPost request = createPostRequest( getJoinChannelPath( channelId), "");
+        addAuthHeader( request);
+        try (CloseableHttpResponse response = httpclient.execute( request)) {
+            String body = getBodyValue( response);
+            logger.fine( body.toString());
+        }
+    }
+
     private <T> Map<String, T> parseJsonToMap( String json) throws JsonParseException, JsonMappingException, IOException {
         ObjectMapper mapper = new ObjectMapper();
         @SuppressWarnings( "unchecked")
@@ -217,25 +235,72 @@ public class MattermostWebDriver {
     }
 
     /**
+     * ログインユーザが参照可能な全てのチャンネルを返します(参加していないチャンネルも含む)
+     * @return
+     * @throws IOException
+     * @throws ClientProtocolException
+     */
+    public List<Channel> getAllChannels() throws ClientProtocolException, IOException {
+        List<Channel> channels = new LinkedList<Channel>();
+        channels.addAll( getJoinedChannels());
+        channels.addAll( getMoreChannels());
+        return channels;
+    }
+
+    /**
      * ログインユーザが参照可能な全ての公開チャンネルを返します(参加していないチャンネルも含む)
      * @return
      * @throws IOException
      * @throws ClientProtocolException
      */
     public List<Channel> getAllPublicChannels() throws ClientProtocolException, IOException {
-        List<Channel> channels = getPublicChannels();
-        // publicなものしか取れてこないはずだが、念のためチャンネル情報を見てDirectMessage、非公開チャンネルは除外
+        List<Channel> channels = getAllChannels();
+        // DirectMessage、非公開チャンネルは除外
         return channels.stream().filter( c -> c.isPublicChannel()).collect( Collectors.toList());
     }
 
-    public List<Channel> getPublicChannels() throws ClientProtocolException, IOException {
-        return getChannels( getPublicChannelPath());
+    /**
+     * ログインユーザが参加しているチャンネル一覧を返します。ダイレクトメッセージ、非公開チャンネルも含まれます
+     * @return
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public List<Channel> getJoinedChannels() throws ClientProtocolException, IOException {
+        return getChannels( getJoinedChannelPath());
+    }
+
+    /**
+     * ログインユーザが参加していないチャンネル一覧を返します
+     * @return
+     * @throws ClientProtocolException
+     * @throws IOException
+     */
+    public List<Channel> getMoreChannels() throws ClientProtocolException, IOException {
+        // 3.7以前のもの
+        if ( isLessThanOrEqualVersion( new BigDecimal( "3.7"))) {
+            return getMoreChannels_3_7();
+        }
+        else {
+            return getMoreChannels_3_8();
+        }
+
+    }
+
+    private List<Channel> getMoreChannels_3_7() throws ClientProtocolException, IOException {
+        return getChannels( getMoreChannelPath_3_7());
+    }
+
+    private List<Channel> getMoreChannels_3_8() throws ClientProtocolException, IOException {
+        // NOTE 最初のページのoffsetは0
+        final int offset = 0;
+        // 全件取りたいので適当に大きな値をlimitに設定
+        final int limit = Integer.MAX_VALUE;
+        return getChannels( getMoreChannelPath3_8( offset, limit));
     }
 
     private List<Channel> getChannels( String path) throws ClientProtocolException, IOException {
         HttpGet request = createGetRequest( path);
         addAuthHeader( request);
-
         try (CloseableHttpResponse response = httpclient.execute( request)) {
             String body = getBodyValue( response);
             List<Map<String, Object>> channelsMap = parseChannelJson( body);
@@ -248,10 +313,15 @@ public class MattermostWebDriver {
         }
     }
 
-    // getChannelの結果をparse
+    // getChannelの結果をmattermostのバージョンに応じてparse
     private List<Map<String, Object>> parseChannelJson( String body) throws JsonParseException, JsonMappingException, IOException {
-        List<Map<String, Object>> channelsMap = parseJsonToList( body);
-        return channelsMap;
+        // 3.4以前のもの
+        if ( isLessThanOrEqualVersion( new BigDecimal( "3.4"))) {
+            return parseChannelJson_3_4( body);
+        }
+        else {
+            return parseChannelJson_3_5( body);
+        }
     }
 
     /**
@@ -259,7 +329,6 @@ public class MattermostWebDriver {
      * @param version 3.5のような値
      * @return
      */
-    @SuppressWarnings( "unused")
     private boolean isLessThanOrEqualVersion( BigDecimal version) {
         if ( mattermostVersion == null) {
             throw new NullPointerException( "mattermostVersion is not initialized.");
@@ -269,6 +338,19 @@ public class MattermostWebDriver {
         String versionNumStr = dividedVersionStrs[0] + "." + dividedVersionStrs[1];
         BigDecimal mattermostVersionNum = new BigDecimal( versionNumStr);
         return mattermostVersionNum.compareTo( version) <= 0;
+    }
+
+    // mattermost3.4のgetChannelの結果をパース
+    private List<Map<String, Object>> parseChannelJson_3_4( String body) throws JsonParseException, JsonMappingException, IOException {
+        Map<String, List<Map<String, Object>>> allMap = parseJsonToMap( body);
+        List<Map<String, Object>> channelsMap = allMap.get( "channels");
+        return channelsMap;
+    }
+
+    // mattermost3.5以降のgetChannelの結果をパース
+    private List<Map<String, Object>> parseChannelJson_3_5( String body) throws JsonParseException, JsonMappingException, IOException {
+        List<Map<String, Object>> channelsMap = parseJsonToList( body);
+        return channelsMap;
     }
 
     // Jsonから作成されたチャンネル情報を元にChannelを作成
@@ -312,7 +394,6 @@ public class MattermostWebDriver {
 
         request.addHeader( "Content-type", "application/json");
 
-        logger.info( "get reuqest path:" + getPath);
         return request;
     }
 
@@ -406,13 +487,26 @@ public class MattermostWebDriver {
         return getUsersRoute() + "/login";
     }
 
-    private String getTeamByNamePath( String name) {
-        return getTeamsRoute() + "/name/" + name;
+    private String getAllTeamsPath() {
+        return getTeamsRoute() + "/all";
     }
 
-    private String getPublicChannelPath() {
-        // NOTE デフォルトでは60件までしか取れないので限度まで取る
-        return getChannelsRoute() + "?per_page=" + Integer.MAX_VALUE;
+    private String getJoinedChannelPath() {
+        return getChannelsRoute() + "/";
+    }
+
+    private String getMoreChannelPath_3_7() {
+        // /channels/more
+        return getChannelsRoute() + "/more";
+    }
+
+    private String getMoreChannelPath3_8( int offset, int limit) {
+        // channels/more/{offset}/{limit}
+        return getChannelsRoute() + "/more/" + offset + "/" + limit;
+    }
+
+    private String getJoinChannelPath( String channelId) {
+        return getChannelNeededRoute( channelId) + "/join";
     }
 
     private String getPostCreatePath( String channelId) {
