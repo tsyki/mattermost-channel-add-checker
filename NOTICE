@@ -1,0 +1,6 @@
+This product includes software distributed under license of Apache License, Version 2.0. (http://www.apache.org/licenses/LICENSE-2.0)
+
+* Apache HttpComponents
+* Apache Commons BeanUtils
+* FasterXML jackson-core
+* FasterXML jackson-databind
