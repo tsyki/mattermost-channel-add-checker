@@ -18,7 +18,8 @@ mattermost-channel-add-checker-jar-with-dependencies.jar
 これでチャンネルが増えた際に以下のメッセージが自動で投稿される  
     「新規チャンネルが追加されました。name=hogehoge 名称=ほげほげ」  
   
-投稿する文面を変えたい場合はchannel_checker.propertiesのpost_message_templateの値を変更する。
+投稿する文面を変えたい場合はchannel_checker.propertiesのpost_message_templateの値を変更する。  
+Mattermost3.xで利用する場合はchannel_checker.propertiesのmattermost_major_versionを3に変更する。
 
 ## License
 [MIT](https://github.com/tsyki/mattermost-channel-add-checker/blob/master/LICENSE)
