@@ -19,3 +19,6 @@ mattermost-channel-add-checker-jar-with-dependencies.jar
     「新規チャンネルが追加されました。name=hogehoge 名称=ほげほげ」  
   
 投稿する文面を変えたい場合はchannel_checker.propertiesのpost_message_templateの値を変更する。
+
+## License
+[MIT](https://github.com/tsyki/mattermost-channel-add-checker/blob/master/LICENSE)
