@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2017 Toshiyuki Imaizumi
+ * This software is released under the MIT License.
+ * http://opensource.org/licenses/mit-license.php 
+ */
 package jp.gr.java_conf.tsyki.util;
 
 import java.util.Iterator;
