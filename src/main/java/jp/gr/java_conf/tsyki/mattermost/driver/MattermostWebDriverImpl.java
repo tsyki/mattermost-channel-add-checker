@@ -77,7 +77,7 @@ public class MattermostWebDriverImpl implements MattermostWebDriver {
     private String authToken;
 
     public MattermostWebDriverImpl() {
-        this.httpclient = HttpClients.createDefault();
+        this.httpclient = HttpClients.custom().disableCookieManagement().build();
         this.urlVersion = "/api/v4";
     }
 
